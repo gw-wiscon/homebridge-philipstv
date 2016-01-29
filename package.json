@@ -1,0 +1,33 @@
+{
+  "name": "homebridge-philipstv",
+  "version": "0.3.29",
+  "description": "Homebridge module for the Philips TV (with JointSpace enabled)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gwk-wiscon/homebridge-philipstv.git"
+  },
+  "dependencies": {
+    "request": "^2.65.0",
+	"polling-to-event": "^2.0.2"
+  },
+  "keywords": [
+    "homebridge",
+    "philipstv",
+    "JointSpace",
+	"homebridge-plugin"
+  ],
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.0"
+  },
+  "author": "gw-wiscon <gw.wiscon@gmail.com> (http://)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gwk-wiscon/homebridge-philipstv/issues"
+  },
+  "homepage": "https://github.com/gwk-wiscon/homebridge-philipstv#readme"
+}

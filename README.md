@@ -10,6 +10,9 @@ Main difference is:
 - If no answer is received, the power state is set to false
 - If any answer is received, the power state is set to true
 
+# Update
+Added power-on function for models after 2014 (thanks to uronito - https://github.com/uronito )
+
 # Installation
 
 1. Install homebridge using: npm install -g homebridge
@@ -18,14 +21,27 @@ Main difference is:
 
 # Configuration
 
-Example accessory config (needs to be added to the homebridge config.json):
+Example accessory config for models before 2014 (needs to be added to the homebridge config.json):
  ```
 "accessories": [
 	{
 		"accessory": "PhilipsTV",
 		"name": "My Philips TV",
 		"ip_address": "10.0.1.23",
-		"poll_status_interval": "60" 
+		"poll_status_interval": "60",
+		"model_year" : 2013
+	}
+]
+ ```
+
+Example accessory config for models from 2014 onwards (needs to be added to the homebridge config.json):
+ ```
+"accessories": [
+	{
+		"accessory": "PhilipsTV",
+		"name": "My Philips TV",
+		"ip_address": "10.0.1.23",
+		"poll_status_interval": "60"
 	}
 ]
  ```

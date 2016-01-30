@@ -19,14 +19,23 @@ function HttpStatusAccessory(log, config)
 	this.ip_address	= config["ip_address"];
 	this.name = config["name"];
 	this.poll_status_interval = config["poll_status_interval"];
+	this.model_year = config["model_year"] || "2014";
+	this.model_year_nr = parseInt(this.model_year);
+	
+	this.api_version = 5;
+	if (this.model_year_nr < 2014) {
+		this.api_version = 1;
+	}
+	that.log("Model year: "+this.model_year_nr);
+	that.log("API version: "+this.api_version);
 	
 	this.state = false;
 	this.interval = parseInt( this.poll_status_interval);
-	this.on_url = "http://"+this.ip_address+":1925/5/input/key";
+	this.on_url = "http://"+this.ip_address+":1925/"+this.api_version+"/input/key";
 	this.on_body = JSON.stringify({"key":"Standby"});
-	this.off_url = "http://"+this.ip_address+":1925/5/input/key";
+	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/input/key";
 	this.off_body = JSON.stringify({"key":"Standby"});
-	this.status_url = "http://"+this.ip_address+":1925/5/system";
+	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {
@@ -118,8 +127,11 @@ setPowerState: function(powerOn, callback) {
 		url = this.on_url;
 		body = this.on_body;
 		this.log("Setting power state to on");
-		//callback(new Error("Power On is not possible via ethernet."));
-		//return;
+		
+		if (this.api_version == 1) {
+			callback(new Error("Power On is not possible via ethernet for model_year before 2014."));
+			return;
+		}
     } else {
 		url = this.off_url;
 		body = this.off_body;

@@ -22,11 +22,11 @@ function HttpStatusAccessory(log, config)
 	
 	this.state = false;
 	this.interval = parseInt( this.poll_status_interval);
-	this.on_url = null;
-	this.on_body = null;
-	this.off_url = "http://"+this.ip_address+":1925/1/input/key";
+	this.on_url = "http://"+this.ip_address+":1925/5/input/key";
+	this.on_body = JSON.stringify({"key":"Standby"});
+	this.off_url = "http://"+this.ip_address+":1925/5/input/key";
 	this.off_body = JSON.stringify({"key":"Standby"});
-	this.status_url = "http://"+this.ip_address+":1925/1/system";
+	this.status_url = "http://"+this.ip_address+":1925/5/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {
@@ -115,11 +115,11 @@ setPowerState: function(powerOn, callback) {
     }
 
     if (powerOn) {
-		//url = this.on_url;
-		//body = this.on_body;
-		this.log("Setting power state to on -- Not really possible");
-		callback(new Error("Power On is not possible via ethernet."));
-		return;
+		url = this.on_url;
+		body = this.on_body;
+		this.log("Setting power state to on");
+		//callback(new Error("Power On is not possible via ethernet."));
+		//return;
     } else {
 		url = this.off_url;
 		body = this.off_body;

@@ -145,6 +145,11 @@ setPowerState: function(powerOn, callback) {
     }
 
     if (powerOn) {
+    		macAddress = "xx:xx:xx:xx:xx:xx";
+    		wol.wake(macAddress,function(error){});
+    		// here would a pause of 3 seconds, i don't know how make it
+    		
+    		//////////////////////////
 		url = this.on_url;
 		body = this.on_body;
 		this.log("Setting power state to on");

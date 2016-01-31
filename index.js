@@ -18,7 +18,7 @@ function HttpStatusAccessory(log, config)
 	// config
 	this.ip_address	= config["ip_address"];
 	this.name = config["name"];
-	this.poll_status_interval = config["poll_status_interval"];
+	this.poll_status_interval = config["poll_status_interval"] || "0";
 	this.model_year = config["model_year"] || "2014";
 	this.model_year_nr = parseInt(this.model_year);
 	
@@ -73,7 +73,7 @@ function HttpStatusAccessory(log, config)
 					
 					//that.log("Poll resp: "+responseBody);
 					content = JSON.parse( responseBody);
-					that.processInformation( content, false);				
+					//that.processInformation( content, false);				
 				}
 
 				if (tError) {
@@ -89,11 +89,6 @@ function HttpStatusAccessory(log, config)
 			var binaryState = parseInt(data);
 			that.state = binaryState > 0;
 			that.log("State data changed message received: ", binaryState); 
-
-			if (that.switchService ) {
-				that.switchService .getCharacteristic(Characteristic.On)
-				.setValue(that.state);
-			}
 		});
 	}
 }
@@ -178,7 +173,7 @@ getPowerState: function(callback) {
 		  }
 		  //that.log("get resp: "+ responseBody);
 		  content = JSON.parse( responseBody);
-		  that.processInformation( content, false);
+		  //that.processInformation( content, false);
 	  }
       if (tError) {
         that.log('HTTP get power function failed: %s', error.message);

@@ -72,8 +72,6 @@ function HttpStatusAccessory(log, config)
 					}
 					
 					//that.log("Poll resp: "+responseBody);
-					content = JSON.parse( responseBody);
-					//that.processInformation( content, false);				
 				}
 
 				if (tError) {
@@ -149,46 +147,51 @@ setPowerState: function(powerOn, callback) {
 },
   
 getPowerState: function(callback) {
+	if (this.switchHandling == "poll") {
+		this.log("getPowerState - polling mode, return state: ", this.state); 
+		callback(null, this.state);
+		return;
+	}
+	
     if (!this.status_url) {
-    	    this.log.warn("Ignoring request; No status url defined.");
+    	this.log.warn("Ignoring request; No status url defined.");
 	    callback(new Error("No status url defined."));
 	    return;
     }
     
     var url = this.status_url;
+	this.log("Getting power state");
 	var that = this;
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
-	  var tResp = responseBody;
-	  var tError = error;
-	  if (tError) {
-		  if (that.powerstateOnError) {
+		var tResp = responseBody;
+		var tError = error;
+		if (tError) {
+			if (that.powerstateOnError) {
 			  tResp = that.powerstateOnError;
 			  tError = null;
-		  }
-	  } else {
-		  if (that.powerstateOnConnect) {
+			}
+		} else {
+			if (that.powerstateOnConnect) {
 			  tResp = that.powerstateOnConnect;
 			  tError = null;
-		  }
-		  //that.log("get resp: "+ responseBody);
-		  content = JSON.parse( responseBody);
-		  //that.processInformation( content, false);
-	  }
-      if (tError) {
-        that.log('HTTP get power function failed: %s', error.message);
-		var powerOn = false;
-		that.log("Power state is currently %s", powerOn);
-		that.state = powerOn;
-        callback(null, powerOn);
-      } else {
-        var binaryState = parseInt(tResp);
-        var powerOn = binaryState > 0;
-        that.log("Power state is currently %s", powerOn);
-		that.state = powerOn;
-        callback(null, powerOn);
-      }
-    }.bind(this));
+			}
+			//that.log("get resp: "+ responseBody);
+		}
+		if (tError) {
+			that.log('HTTP get power function failed: %s', error.message);
+			var powerOn = false;
+			that.log("Power state is currently %s", powerOn);
+			that.state = powerOn;
+			callback(null, powerOn);
+		} else {
+			var binaryState = parseInt(tResp);
+			var powerOn = binaryState > 0;
+			that.log("Power state is currently %s", powerOn);
+			that.state = powerOn;
+			callback(null, powerOn);
+		}
+	}.bind(this));
 },
 
 identify: function(callback) {
@@ -196,7 +199,7 @@ identify: function(callback) {
     callback(); // success
 },
 
-processInformation: function( info, firstTime)
+processInformation: function( info, informationService, firstTime)
 {
 	if (!info)
 		return;
@@ -243,50 +246,29 @@ processInformation: function( info, firstTime)
 	}
 	
 	if( !equal || firstTime) {
-		if (this.informationService) {
+		if (informationService) {
 			this.log('Setting info: '+ JSON.stringify( this.info));
-			this.informationService
+			informationService
 			.setCharacteristic(Characteristic.Manufacturer, deviceManufacturer)
 			.setCharacteristic(Characteristic.Model, deviceModel)
-			.setCharacteristic(Characteristic.SerialNumber, deviceSerialnumber)
-			.setCharacteristic(Characteristic.Name, deviceName)
-			.setCharacteristic(Characteristic.SoftwareRevision, deviceSoftwareversion );
+			.setCharacteristic(Characteristic.SerialNumber, deviceSerialnumber);
 		}
 	}
 },
 
 getServices: function() {
-
-    // you can OPTIONALLY create an information service if you wish to override
-    // the default values for things like serial number, model, etc.
 	var that = this;
 
-	//console.log( "--"+this.name);
-	this.informationService = new Service.AccessoryInformation();
-	this.processInformation( this.info, true);
+	var informationService = new Service.AccessoryInformation();
+	this.processInformation( this.info, informationService, true);
 
 	this.switchService = new Service.Switch(this.name);
 
-	switch (this.switchHandling) {			
-		case "check":					
-			this.switchService
-			.getCharacteristic(Characteristic.On)
-			.on('get', this.getPowerState.bind(this))
-			.on('set', this.setPowerState.bind(this));
-			break;
-		case "poll":				
-			this.switchService
-			.getCharacteristic(Characteristic.On)
-			.on('get', function(callback) {callback(null, that.state)})
-			.on('set', this.setPowerState.bind(this));
-			break;
-		default	:	
-			this.switchService
-			.getCharacteristic(Characteristic.On)	
-			.on('set', this.setPowerState.bind(this));
-			break;
-	}
-	return [this.informationService, this.switchService];
+	this.switchService
+		.getCharacteristic(Characteristic.On)
+		.on('get', this.getPowerState.bind(this))
+		.on('set', this.setPowerState.bind(this));
 
-	}
+	return [informationService, this.switchService];
+}
 };

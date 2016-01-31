@@ -29,7 +29,7 @@ Example accessory config for models before 2014 (needs to be added to the homebr
 		"name": "My Philips TV",
 		"ip_address": "10.0.1.23",
 		"poll_status_interval": "60",
-		"model_year" : 2013
+		"model_year" : "2013"
 	}
 ]
  ```
@@ -42,6 +42,20 @@ Example accessory config for models from 2014 onwards (needs to be added to the 
 		"name": "My Philips TV",
 		"ip_address": "10.0.1.23",
 		"poll_status_interval": "60"
+	}
+]
+ ```
+ 
+Added test option for WakeOnWLAN:
+ ```
+"accessories": [
+	{
+		"accessory": "PhilipsTV",
+		"name": "My Philips TV",
+		"ip_address": "10.0.1.23",
+		"poll_status_interval": "60",
+		"model_year" : "2014",
+		"wol_url": "wol://18:8e:d5:a2:8c:66"
 	}
 ]
  ```

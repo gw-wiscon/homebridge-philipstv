@@ -2,6 +2,7 @@ var Service;
 var Characteristic;
 var request = require("request");
 var pollingtoevent = require('polling-to-event');
+var wol = require('wake_on_lan');
 
 module.exports = function(homebridge)
 {
@@ -20,6 +21,7 @@ function HttpStatusAccessory(log, config)
 	this.name = config["name"];
 	this.poll_status_interval = config["poll_status_interval"] || "0";
 	this.model_year = config["model_year"] || "2014";
+	this.wol_url = config["wol_url"] || "";
 	this.model_year_nr = parseInt(this.model_year);
 	
 	this.api_version = 5;
@@ -94,15 +96,41 @@ function HttpStatusAccessory(log, config)
 HttpStatusAccessory.prototype = {
 
 httpRequest: function(url, body, method, callback) {
-	request({
+	req = request({
 		url: url,
 		body: body,
 		method: method,
-		rejectUnauthorized: false
+		rejectUnauthorized: false,
+		timeout: 3000
 	},
 	function(error, response, body) {
 		callback(error, response, body)
 	});
+},
+
+wolRequest: function(url, callback) {
+	if (!url) {
+		callback(null, "EMPTY");
+		return;
+	}
+	if (url.substring( 0, 3).toUpperCase() == "WOL") {
+		//Wake on lan request
+		var macAddress = url.replace(/^WOL[:]?[\/]?[\/]?/ig,"");
+		this.log("Excuting WakeOnLan request to "+macAddress);
+		wol.wake(macAddress, function(error) {
+		  if (error) {
+			callback( error);
+		  } else {
+			callback( null, "OK");
+		  }
+		});
+	} else {
+		if (url.length > 3) {
+			callback(new Error("Unsupported protocol: ", "ERROR"));
+		} else {
+			callback(null, "EMPTY");
+		}
+	}
 },
 
 setPowerState: function(powerOn, callback) {
@@ -121,7 +149,8 @@ setPowerState: function(powerOn, callback) {
 		body = this.on_body;
 		this.log("Setting power state to on");
 		
-		if (this.api_version == 1) {
+		if (this.model_year_nr < 2013) {
+			this.log("Power On is not possible via ethernet for model_year before 2014.");
 			callback(new Error("Power On is not possible via ethernet for model_year before 2014."));
 			return;
 		}
@@ -131,19 +160,38 @@ setPowerState: function(powerOn, callback) {
 		this.log("Setting power state to off");
     }
 
-    this.httpRequest(url, body, "POST", function(error, response, responseBody) {
-		if (error) {
-			that.log('HTTP set power function failed: %s', error.message);
-			var powerOn = false;
-			that.log("Power state is currently %s", powerOn);
-			that.state = powerOn;
-			
-			callback(null, powerOn);
-		} else {
-			that.log('HTTP set power function succeeded!');
-			callback();
-		}
-    }.bind(this));
+	if (this.wol_url && powerOn) {
+		this.wolRequest(this.wol_url, function(error, response) {
+			that.log('WOL callback response: %s', response);
+			this.httpRequest(url, body, "POST", function(error, response, responseBody) {
+				if (error) {
+					that.log('HTTP set power function failed: %s', error.message);
+					var powerOn = false;
+					that.log("Power state is currently %s", powerOn);
+					that.state = powerOn;
+					
+					callback(null, powerOn);
+				} else {
+					that.log('HTTP set power function succeeded!');
+					callback();
+				}
+			});
+		}.bind(this));
+	} else {
+		this.httpRequest(url, body, "POST", function(error, response, responseBody) {
+			if (error) {
+				that.log('HTTP set power function failed: %s', error.message);
+				var powerOn = false;
+				that.log("Power state is currently %s", powerOn);
+				that.state = powerOn;
+				
+				callback(null, powerOn);
+			} else {
+				that.log('HTTP set power function succeeded!');
+				callback();
+			}
+		}.bind(this));
+	}
 },
   
 getPowerState: function(callback) {

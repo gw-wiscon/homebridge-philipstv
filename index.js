@@ -99,7 +99,12 @@ function HttpStatusAccessory(log, config)
 		statusemitter.on("statuspoll", function(data) {
 			var binaryState = parseInt(data);
 			that.state = binaryState > 0;
-			that.log("State data changed message received: ", binaryState); 
+			that.log("State data changed message received: ", binaryState);
+			/*Causes a switch off - we only want to inform homekit, 
+			but this is doing more
+			if (that.switchService ) {
+				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state);
+			}*/
 		});
 	}
 }
@@ -165,7 +170,6 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 			}
 		} else {
 			that.log('HTTP set power function succeeded!');
-			powerState = true;
 			that.state = powerState;
 			
 			callback(null, powerState);
@@ -210,18 +214,8 @@ setPowerState: function(powerState, callback) {
 			});				
 		}.bind(this));
 	} else {
-		this.httpRequest(url, body, "POST", function(error, response, responseBody) {
-			if (error) {
-				that.log('HTTP set power function failed: %s', error.message);
-				powerState = false;
-				that.log("Power state is currently %s", powerState);
-				that.state = powerState;
-				
-				callback(null, powerState);
-			} else {
-				that.log('HTTP set power function succeeded!');
-				callback(null, powerState);
-			}
+		that.setPowerStateLoop( 0, url, body, powerState, function( err, state) {
+			callback(err, state);
 		}.bind(this));
 	}
 },

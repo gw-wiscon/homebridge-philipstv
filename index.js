@@ -161,11 +161,12 @@ setPowerState: function(powerOn, callback) {
     }
 
 	if (this.wol_url && powerOn) {
+		that.log('WOL request done..');
 		this.wolRequest(this.wol_url, function(error, response) {
-			that.log('Waiting done..');
+			that.log('WOL callback response: %s', response);
 			setTimeout( function() {
-				that.log('WOL callback response: %s', response);
-				this.httpRequest(url, body, "POST", function(error, response, responseBody) {
+				that.log('Waiting done..');
+				that.httpRequest(url, body, "POST", function(error, response, responseBody) {
 					if (error) {
 						that.log('HTTP set power function failed: %s', error.message);
 						var powerOn = false;

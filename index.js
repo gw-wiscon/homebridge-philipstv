@@ -37,7 +37,8 @@ function HttpStatusAccessory(log, config)
 	this.on_body = JSON.stringify({"key":"Standby"});
 	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/input/key";
 	this.off_body = JSON.stringify({"key":"Standby"});
-	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
+	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.info_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {
@@ -133,7 +134,36 @@ wolRequest: function(url, callback) {
 	}
 },
 
-setPowerState: function(powerOn, callback) {
+setPowerStateLoop: function( nCount, url, body, powerState, callback)
+{
+	var that = this;
+
+	that.httpRequest(url, body, "POST", function(error, response, responseBody) {
+		if (error) {
+			if (nCount > 0) {
+				that.log('Powerstate attempt, attempt id: ', nCount-1);
+				that.setPowerStateLoop(nCount-1, url, body, powerState, function( err, state) {
+					callback(null, powerState);
+				});				
+			} else {
+				that.log('HTTP set power function failed: %s', error.message);
+				var powerState = false;
+				that.log("Power state is currently %s", powerState);
+				that.state = powerState;
+				
+				callback(null, powerState);
+			}
+		} else {
+			that.log('HTTP set power function succeeded!');
+			powerState = true;
+			that.state = powerState;
+			
+			callback(null, powerState);
+		}
+	});
+},
+
+setPowerState: function(powerState, callback) {
     var url;
     var body;
 	var that = this;
@@ -144,7 +174,7 @@ setPowerState: function(powerOn, callback) {
 	    return;
     }
 
-    if (powerOn) {
+    if (powerState) {
 		url = this.on_url;
 		body = this.on_body;
 		this.log("Setting power state to on");
@@ -160,45 +190,34 @@ setPowerState: function(powerOn, callback) {
 		this.log("Setting power state to off");
     }
 
-	if (this.wol_url && powerOn) {
+	if (this.wol_url && powerState) {
 		that.log('WOL request done..');
 		this.wolRequest(this.wol_url, function(error, response) {
 			that.log('WOL callback response: %s', response);
-			setTimeout( function() {
-				that.log('Waiting done..');
-				that.httpRequest(url, body, "POST", function(error, response, responseBody) {
-					if (error) {
-						that.log('HTTP set power function failed: %s', error.message);
-						var powerOn = false;
-						that.log("Power state is currently %s", powerOn);
-						that.state = powerOn;
-						
-						callback(null, powerOn);
-					} else {
-						that.log('HTTP set power function succeeded!');
-						callback();
-					}
-				});
-			}, 4000);
+			that.log('Powerstate attempt, attempt id: ', 8);
+			that.setPowerStateLoop( 8, url, body, powerState, function( err, state) {
+				callback(err, state);
+			});				
 		}.bind(this));
 	} else {
 		this.httpRequest(url, body, "POST", function(error, response, responseBody) {
 			if (error) {
 				that.log('HTTP set power function failed: %s', error.message);
-				var powerOn = false;
-				that.log("Power state is currently %s", powerOn);
-				that.state = powerOn;
+				powerState = false;
+				that.log("Power state is currently %s", powerState);
+				that.state = powerState;
 				
-				callback(null, powerOn);
+				callback(null, powerState);
 			} else {
 				that.log('HTTP set power function succeeded!');
-				callback();
+				callback(null, powerState);
 			}
 		}.bind(this));
 	}
 },
   
 getPowerState: function(callback) {
+	var that = this;
 	if (this.switchHandling == "poll") {
 		this.log("getPowerState - polling mode, return state: ", this.state); 
 		callback(null, this.state);
@@ -213,7 +232,6 @@ getPowerState: function(callback) {
     
     var url = this.status_url;
 	this.log("Getting power state");
-	var that = this;
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
 		var tResp = responseBody;
@@ -224,24 +242,38 @@ getPowerState: function(callback) {
 			  tError = null;
 			}
 		} else {
-			if (that.powerstateOnConnect) {
-			  tResp = that.powerstateOnConnect;
-			  tError = null;
+			var parsed = false;
+			if (responseBody) {
+				var responseBodyParsed = JSON.parse( responseBody);
+				if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "On") {
+					tResp = that.powerstateOnConnect;
+					tError = null;
+				} else {
+					tResp = that.powerstateOnError;
+					tError = null;
+				}
+			}
+			if (!parsed) {
+				that.log("Could not parse message: '%s', assume device is ON", responseBody);
+				if (that.powerstateOnConnect) {
+				  tResp = that.powerstateOnConnect;
+				  tError = null;
+				}
 			}
 			//that.log("get resp: "+ responseBody);
 		}
 		if (tError) {
 			that.log('HTTP get power function failed: %s', error.message);
-			var powerOn = false;
-			that.log("Power state is currently %s", powerOn);
-			that.state = powerOn;
-			callback(null, powerOn);
+			var powerState = false;
+			that.log("Power state is currently %s", powerState);
+			that.state = powerState;
+			callback(null, powerState);
 		} else {
 			var binaryState = parseInt(tResp);
-			var powerOn = binaryState > 0;
-			that.log("Power state is currently %s", powerOn);
-			that.state = powerOn;
-			callback(null, powerOn);
+			var powerState = binaryState > 0;
+			that.log("Power state is currently %s", powerState);
+			that.state = powerState;
+			callback(null, powerState);
 		}
 	}.bind(this));
 },

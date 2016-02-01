@@ -162,20 +162,23 @@ setPowerState: function(powerOn, callback) {
 
 	if (this.wol_url && powerOn) {
 		this.wolRequest(this.wol_url, function(error, response) {
-			that.log('WOL callback response: %s', response);
-			this.httpRequest(url, body, "POST", function(error, response, responseBody) {
-				if (error) {
-					that.log('HTTP set power function failed: %s', error.message);
-					var powerOn = false;
-					that.log("Power state is currently %s", powerOn);
-					that.state = powerOn;
-					
-					callback(null, powerOn);
-				} else {
-					that.log('HTTP set power function succeeded!');
-					callback();
-				}
-			});
+			that.log('Waiting done..');
+			setTimeout( function() {
+				that.log('WOL callback response: %s', response);
+				this.httpRequest(url, body, "POST", function(error, response, responseBody) {
+					if (error) {
+						that.log('HTTP set power function failed: %s', error.message);
+						var powerOn = false;
+						that.log("Power state is currently %s", powerOn);
+						that.state = powerOn;
+						
+						callback(null, powerOn);
+					} else {
+						that.log('HTTP set power function succeeded!');
+						callback();
+					}
+				});
+			}, 4000);
 		}.bind(this));
 	} else {
 		this.httpRequest(url, body, "POST", function(error, response, responseBody) {

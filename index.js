@@ -33,10 +33,10 @@ function HttpStatusAccessory(log, config)
 	
 	this.state = false;
 	this.interval = parseInt( this.poll_status_interval);
-	this.on_url = "http://"+this.ip_address+":1925/"+this.api_version+"/input/key";
-	this.on_body = JSON.stringify({"key":"Standby"});
-	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/input/key";
-	this.off_body = JSON.stringify({"key":"Standby"});
+	this.on_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.on_body = JSON.stringify({"powerstate":"On"});
+	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.off_body = JSON.stringify({"powerstate":"Standby"});
 	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
 	this.info_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
@@ -73,6 +73,16 @@ function HttpStatusAccessory(log, config)
 					  tResp = that.powerstateOnConnect;
 					  tError = null;
 					}
+				
+					 if (responseBody) {
+                               		   var responseBodyParsed = JSON.parse( responseBody);
+                               		   if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "Standby"){
+                               		   	tResp = that.powerstateOnError;
+                               		   	tError = null;
+                               		   }
+                               		   }
+						
+				
 					
 					//that.log("Poll resp: "+responseBody);
 				}

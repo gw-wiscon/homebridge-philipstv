@@ -100,11 +100,10 @@ function HttpStatusAccessory(log, config)
 			var binaryState = parseInt(data);
 			that.state = binaryState > 0;
 			that.log("State data changed message received: ", binaryState);
-			/*Causes a switch off - we only want to inform homekit, 
-			but this is doing more
+
 			if (that.switchService ) {
-				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state);
-			}*/
+				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+			}
 		});
 	}
 }
@@ -177,11 +176,16 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 	});
 },
 
-setPowerState: function(powerState, callback) {
+setPowerState: function(powerState, callback, context) {
     var url;
     var body;
 	var that = this;
 
+	if (context && context == "statuspoll") {
+		this.log( "setPowerState -- Status poll context is set, ignore request.");
+		callback(null, powerState);
+	    return;
+	}
     if (!this.ip_address) {
     	    this.log.warn("Ignoring request; No ip_address defined.");
 	    callback(new Error("No ip_address defined."));

@@ -74,17 +74,16 @@ function HttpStatusAccessory(log, config)
 					  tError = null;
 					}
 				
-					 if (responseBody) {
-                               		   var responseBodyParsed = JSON.parse( responseBody);
-                               		   if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "Standby"){
-                               		   	tResp = that.powerstateOnError;
-                               		   	tError = null;
-                               		   }
-                               		   }
-						
-				
+					if (responseBody) {
+						var responseBodyParsed = JSON.parse( responseBody);
+						if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "Standby"){
+							tResp = that.powerstateOnError;
+							tError = null;
+						}
+					}
 					
 					//that.log("Poll resp: "+responseBody);
+					//that.log("Poll resp parsed: "+tResp);
 				}
 
 				if (tError) {

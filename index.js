@@ -164,7 +164,7 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 				that.log("Power state is currently %s", powerState);
 				that.state = powerState;
 				
-				callback(null, powerState);
+				callback(new Error("WOL attempt failed"), powerState);
 			}
 		} else {
 			that.log('HTTP set power function succeeded!');

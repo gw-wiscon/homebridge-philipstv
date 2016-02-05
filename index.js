@@ -164,7 +164,7 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 				var powerState = false;
 				that.log("Power state is currently %s", powerState);
 				that.state = powerState;
-				
+				that.switchService.getCharacteristic(Characteristic.On).getValue(0, null, "statuspoll");
 				callback(null, powerState);
 			}
 		} else {

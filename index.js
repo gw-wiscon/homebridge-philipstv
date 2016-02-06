@@ -125,20 +125,16 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 			if (nCount > 0) {
 				that.log('Powerstate attempt, attempt id: ', nCount-1);
 				that.setPowerStateLoop(nCount-1, url, body, powerState, function( err, state) {
-					callback(null, powerState);
+					callback(null, state);
 				});				
 			} else {
 				that.log('HTTP set power function failed: %s', error.message);
-				var powerState = false;
-				that.log("Power state is currently %s", powerState);
-				that.state = powerState;
-				
+				powerState = false;
+				that.log("Power state is currently %s", powerState);				
 				callback(new Error("WOL attempt failed"), powerState);
 			}
 		} else {
-			that.log('HTTP set power function succeeded!');
-			that.state = powerState;
-			
+			that.log('HTTP set power function succeeded!');			
 			callback(null, powerState);
 		}
 	});
@@ -182,13 +178,27 @@ setPowerState: function(powerState, callback, context) {
 		this.wolRequest(this.wol_url, function(error, response) {
 			that.log('WOL callback response: %s', response);
 			that.log('Powerstate attempt, attempt id: ', 8);
-			that.setPowerStateLoop( 8, url, body, powerState, function( err, state) {
-				callback(err, state);
+			that.setPowerStateLoop( 8, url, body, powerState, function( error, state) {
+				that.state = state;
+				if (error) {
+					that.state = false;
+					if (that.switchService ) {
+						that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+					}					
+				}
+				callback(error, that.state);				
 			});				
 		}.bind(this));
 	} else {
-		that.setPowerStateLoop( 0, url, body, powerState, function( err, state) {
-			callback(err, state);
+		that.setPowerStateLoop( 0, url, body, powerState, function( error, state) {
+			that.state = state;
+			if (error) {
+				that.state = false;
+				if (that.switchService ) {
+					that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+				}					
+			}
+			callback(error, that.state);
 		}.bind(this));
 	}
 },
@@ -214,7 +224,7 @@ getPowerState: function(callback, context) {
 	//this.log("Getting power state");
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
-		var tResp = responseBody;
+		var tResp = that.powerstateOnError;
 		var tError = error;
 		if (tError) {
 			if (that.powerstateOnError) {

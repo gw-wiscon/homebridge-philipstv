@@ -59,46 +59,15 @@ function HttpStatusAccessory(log, config)
 		var powerurl = this.status_url;
 		
 		var statusemitter = pollingtoevent(function(done) {
-			//that.log("Polling switch level..");
-			that.httpRequest(powerurl, "", "GET", function(error, response, responseBody) {
-				var tResp = responseBody;
-				var tError = error;
-				if (tError) {
-					if (that.powerstateOnError) {
-					  tResp = that.powerstateOnError;
-					  tError = null;
-					}
-				} else {
-					if (that.powerstateOnConnect) {
-					  tResp = that.powerstateOnConnect;
-					  tError = null;
-					}
-				
-					if (responseBody) {
-						var responseBodyParsed = JSON.parse( responseBody);
-						if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "Standby"){
-							tResp = that.powerstateOnError;
-							tError = null;
-						}
-					}
-					
-					//that.log("Poll resp: "+responseBody);
-					//that.log("Poll resp parsed: "+tResp);
-				}
-
-				if (tError) {
-					that.log('HTTP get power function failed: %s', error.message);
-					done(error);
-				} else {
-					done(null, tResp);
-				}
-			})
+			//that.log("Polling");
+			that.getPowerState( function( error, response) {
+				done(error, response);
+			}, "statuspoll");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll"});
 
 		statusemitter.on("statuspoll", function(data) {
-			var binaryState = parseInt(data);
-			that.state = binaryState > 0;
-			that.log("State data changed message received: ", binaryState);
+			that.state = data;
+			that.log("Event - State data changed message received: ", that.state);
 
 			if (that.switchService ) {
 				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
@@ -180,6 +149,7 @@ setPowerState: function(powerState, callback, context) {
     var body;
 	var that = this;
 
+//if context is statuspoll, then we need to ensure that we do not set the actual value
 	if (context && context == "statuspoll") {
 		this.log( "setPowerState -- Status poll context is set, ignore request.");
 		callback(null, powerState);
@@ -223,12 +193,15 @@ setPowerState: function(powerState, callback, context) {
 	}
 },
   
-getPowerState: function(callback) {
+getPowerState: function(callback, context) {
 	var that = this;
-	if (this.switchHandling == "poll") {
-		this.log("getPowerState - polling mode, return state: ", this.state); 
-		callback(null, this.state);
-		return;
+//if context is statuspoll, then we need to request the actual value
+	if (!context || context != "statuspoll") {
+		if (this.switchHandling == "poll") {
+			this.log("getPowerState - polling mode, return state: ", this.state); 
+			callback(null, this.state);
+			return;
+		}
 	}
 	
     if (!this.status_url) {
@@ -238,7 +211,7 @@ getPowerState: function(callback) {
     }
     
     var url = this.status_url;
-	this.log("Getting power state");
+	//this.log("Getting power state");
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
 		var tResp = responseBody;
@@ -255,6 +228,7 @@ getPowerState: function(callback) {
 				if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "On") {
 					tResp = that.powerstateOnConnect;
 					tError = null;
+					parsed = true;
 				} else {
 					tResp = that.powerstateOnError;
 					tError = null;
@@ -272,13 +246,13 @@ getPowerState: function(callback) {
 		if (tError) {
 			that.log('HTTP get power function failed: %s', error.message);
 			var powerState = false;
-			that.log("Power state is currently %s", powerState);
+			that.log("Get - Power state is currently %s", powerState);
 			that.state = powerState;
 			callback(null, powerState);
 		} else {
 			var binaryState = parseInt(tResp);
 			var powerState = binaryState > 0;
-			that.log("Power state is currently %s", powerState);
+			//that.log("Get - Power state is currently %s", powerState);
 			that.state = powerState;
 			callback(null, powerState);
 		}

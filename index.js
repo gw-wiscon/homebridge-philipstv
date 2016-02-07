@@ -59,7 +59,7 @@ function HttpStatusAccessory(log, config)
 		var powerurl = this.status_url;
 		
 		var statusemitter = pollingtoevent(function(done) {
-			//that.log("Polling");
+			that.log("Polling");
 			that.getPowerState( function( error, response) {
 				done(error, response);
 			}, "statuspoll");
@@ -125,10 +125,10 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 			if (nCount > 0) {
 				that.log('Powerstate attempt, attempt id: ', nCount-1);
 				that.setPowerStateLoop(nCount-1, url, body, powerState, function( err, state) {
-					callback(null, state);
+					callback(err, state);
 				});				
 			} else {
-				that.log('HTTP set power function failed: %s', error.message);
+				that.log('HTTP set power failed: %s', error.message);
 				powerState = false;
 				that.log("Power state is currently %s", powerState);				
 				callback(new Error("WOL attempt failed"), powerState);
@@ -147,7 +147,7 @@ setPowerState: function(powerState, callback, context) {
 
 //if context is statuspoll, then we need to ensure that we do not set the actual value
 	if (context && context == "statuspoll") {
-		this.log( "setPowerState -- Status poll context is set, ignore request.");
+		this.log( "setPowerState -- context: statuspoll, ignore, state: %s", this.state);
 		callback(null, powerState);
 	    return;
 	}
@@ -178,22 +178,27 @@ setPowerState: function(powerState, callback, context) {
 		this.wolRequest(this.wol_url, function(error, response) {
 			that.log('WOL callback response: %s', response);
 			that.log('Powerstate attempt, attempt id: ', 8);
+			//execute the callback immediately, to give control back to homekit
+			callback(error, that.state);		
 			that.setPowerStateLoop( 8, url, body, powerState, function( error, state) {
 				that.state = state;
+				that.log( "setPowerState - PWR: %s - %s -- current state: %s", error, state, that.state);
 				if (error) {
 					that.state = false;
+					that.log( "setPowerState - PWR: ERROR -- current state: %s", that.state);
 					if (that.switchService ) {
 						that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
 					}					
 				}
-				callback(error, that.state);				
 			});				
 		}.bind(this));
 	} else {
 		that.setPowerStateLoop( 0, url, body, powerState, function( error, state) {
 			that.state = state;
+			that.log( "setPowerState - PWR: %s - %s -- current state: %s", error, state, that.state);
 			if (error) {
 				that.state = false;
+				that.log( "setPowerState - PWR: ERROR -- current state: %s", that.state);
 				if (that.switchService ) {
 					that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
 				}					
@@ -221,7 +226,7 @@ getPowerState: function(callback, context) {
     }
     
     var url = this.status_url;
-	//this.log("Getting power state");
+	this.log("Getting power state");
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
 		var tResp = that.powerstateOnError;
@@ -235,13 +240,15 @@ getPowerState: function(callback, context) {
 			var parsed = false;
 			if (responseBody) {
 				var responseBodyParsed = JSON.parse( responseBody);
-				if (responseBodyParsed.powerstate && responseBodyParsed.powerstate == "On") {
-					tResp = that.powerstateOnConnect;
-					tError = null;
+				if (responseBodyParsed && responseBodyParsed.powerstate) {
+					if (responseBodyParsed.powerstate == "On") {
+						tResp = that.powerstateOnConnect;
+						tError = null;						
+					} else {
+						tResp = that.powerstateOnError;
+						tError = null;
+					}
 					parsed = true;
-				} else {
-					tResp = that.powerstateOnError;
-					tError = null;
 				}
 			}
 			if (!parsed) {
@@ -254,7 +261,7 @@ getPowerState: function(callback, context) {
 			//that.log("get resp: "+ responseBody);
 		}
 		if (tError) {
-			that.log('HTTP get power function failed: %s', error.message);
+			that.log('HTTP get power failed: %s', error.message);
 			var powerState = false;
 			that.log("Get - Power state is currently %s", powerState);
 			that.state = powerState;
@@ -262,7 +269,7 @@ getPowerState: function(callback, context) {
 		} else {
 			var binaryState = parseInt(tResp);
 			var powerState = binaryState > 0;
-			//that.log("Get - Power state is currently %s", powerState);
+			that.log("Get - Power state is currently %s", powerState);
 			that.state = powerState;
 			callback(null, powerState);
 		}

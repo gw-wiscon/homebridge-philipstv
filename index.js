@@ -162,7 +162,7 @@ setPowerState: function(powerState, callback, context) {
 		body = this.on_body;
 		this.log("Setting power state to on");
 		
-		if (this.model_year_nr < 2013) {
+		if (this.model_year_nr <= 2013) {
 			this.log("Power On is not possible via ethernet for model_year before 2014.");
 			callback(new Error("Power On is not possible via ethernet for model_year before 2014."));
 			return;

@@ -1,6 +1,6 @@
 {
   "name": "homebridge-philipstv",
-  "version": "0.3.75",
+  "version": "0.3.81",
   "description": "Homebridge module for the Philips TV (with JointSpace enabled)",
   "main": "index.js",
   "scripts": {
@@ -11,9 +11,9 @@
     "url": "git+https://github.com/gw-wiscon/homebridge-philipstv.git"
   },
   "dependencies": {
-    "request": ">=2.65.0",
-	"polling-to-event": ">=2.0.2",
-	"wake_on_lan": ">=0.0.4"
+    "polling-to-event": "^2.0.2",
+    "request": "^2.69.0",
+    "wake_on_lan": "0.0.4"
   },
   "keywords": [
     "homebridge",

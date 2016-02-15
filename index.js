@@ -23,6 +23,7 @@ function HttpStatusAccessory(log, config)
 	this.model_year = config["model_year"] || "2014";
 	this.wol_url = config["wol_url"] || "";
 	this.model_year_nr = parseInt(this.model_year);
+	this.setAttempt = 0;
 	
 	this.api_version = 5;
 	if (this.model_year_nr < 2014) {
@@ -59,15 +60,16 @@ function HttpStatusAccessory(log, config)
 		var powerurl = this.status_url;
 		
 		var statusemitter = pollingtoevent(function(done) {
-			that.log("Polling");
+			that.log("start polling..");
 			that.getPowerState( function( error, response) {
-				done(error, response);
+				//pass also the setAttempt, to force a homekit update if needed
+				done(error, response, that.setAttempt);
 			}, "statuspoll");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll"});
 
 		statusemitter.on("statuspoll", function(data) {
 			that.state = data;
-			that.log("Event - State data changed message received: ", that.state);
+			that.log("event - status poller - new state: ", that.state);
 
 			if (that.switchService ) {
 				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
@@ -123,18 +125,18 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 	that.httpRequest(url, body, "POST", function(error, response, responseBody) {
 		if (error) {
 			if (nCount > 0) {
-				that.log('Powerstate attempt, attempt id: ', nCount-1);
+				that.log('setPowerState - powerstate attempt, attempt id: ', nCount-1);
 				that.setPowerStateLoop(nCount-1, url, body, powerState, function( err, state) {
 					callback(err, state);
 				});				
 			} else {
-				that.log('HTTP set power failed: %s', error.message);
+				that.log('setPowerState - failed: %s', error.message);
 				powerState = false;
-				that.log("Power state is currently %s", powerState);				
-				callback(new Error("WOL attempt failed"), powerState);
+				that.log("setPowerState - failed - current state: %s", powerState);				
+				callback(new Error("HTTP attempt failed"), powerState);
 			}
 		} else {
-			that.log('HTTP set power function succeeded!');			
+			that.log('setPowerState - Succeeded - current state: %s", powerState');			
 			callback(null, powerState);
 		}
 	});
@@ -147,7 +149,7 @@ setPowerState: function(powerState, callback, context) {
 
 //if context is statuspoll, then we need to ensure that we do not set the actual value
 	if (context && context == "statuspoll") {
-		this.log( "setPowerState -- context: statuspoll, ignore, state: %s", this.state);
+		this.log( "setPowerState - polling mode, ignore, state: %s", this.state);
 		callback(null, powerState);
 	    return;
 	}
@@ -157,27 +159,29 @@ setPowerState: function(powerState, callback, context) {
 	    return;
     }
 
+	this.setAttempt = this.setAttempt+1;
+	
     if (powerState) {
 		url = this.on_url;
 		body = this.on_body;
-		this.log("Setting power state to on");
+		this.log("setPowerState - setting power state to on");
 		
 		if (this.model_year_nr <= 2013) {
-			this.log("Power On is not possible via ethernet for model_year before 2014.");
-			callback(new Error("Power On is not possible via ethernet for model_year before 2014."));
+			this.log("Power On is not possible for model_year before 2014.");
+			callback(new Error("Power On is not possible for model_year before 2014."));
 			return;
 		}
     } else {
 		url = this.off_url;
 		body = this.off_body;
-		this.log("Setting power state to off");
+		this.log("setPowerState - setting power state to off");
     }
 
 	if (this.wol_url && powerState) {
-		that.log('WOL request done..');
+		that.log('setPowerState - WOL request done..');
 		this.wolRequest(this.wol_url, function(error, response) {
-			that.log('WOL callback response: %s', response);
-			that.log('Powerstate attempt, attempt id: ', 8);
+			that.log('setPowerState - WOL callback response: %s', response);
+			that.log('setPowerState - powerstate attempt, attempt id: ', 8);
 			//execute the callback immediately, to give control back to homekit
 			callback(error, that.state);		
 			that.setPowerStateLoop( 8, url, body, powerState, function( error, state) {
@@ -226,7 +230,7 @@ getPowerState: function(callback, context) {
     }
     
     var url = this.status_url;
-	this.log("Getting power state");
+	this.log("getPowerState - actual mode");
 
     this.httpRequest(url, "", "GET", function(error, response, responseBody) {
 		var tResp = that.powerstateOnError;
@@ -261,15 +265,15 @@ getPowerState: function(callback, context) {
 			//that.log("get resp: "+ responseBody);
 		}
 		if (tError) {
-			that.log('HTTP get power failed: %s', error.message);
+			that.log('getPowerState - actual mode - failed: %s', error.message);
 			var powerState = false;
-			that.log("Get - Power state is currently %s", powerState);
+			that.log("getPowerState - actual mode - current state: %s", powerState);
 			that.state = powerState;
 			callback(null, powerState);
 		} else {
 			var binaryState = parseInt(tResp);
 			var powerState = binaryState > 0;
-			that.log("Get - Power state is currently %s", powerState);
+			that.log("getPowerState - actual mode - current state: %s", powerState);
 			that.state = powerState;
 			callback(null, powerState);
 		}

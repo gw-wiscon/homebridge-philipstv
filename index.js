@@ -25,21 +25,34 @@ function HttpStatusAccessory(log, config)
 	this.model_year_nr = parseInt(this.model_year);
 	this.setAttempt = 0;
 	
-	this.api_version = 5;
-	if (this.model_year_nr < 2014) {
-		this.api_version = 1;
+	this.username = config["username"] || "";
+	this.password = config["password"] || "";
+	
+	switch (this.model_year_nr) {
+		case 2016:
+			this.api_version = 6;
+			break;
+		case 2014:
+			this.api_version = 5;
+			break;
+		default:
+			this.api_version = 1;
 	}
+	
+	this.protocol = (this.api_version > 5)?"https":"http";
+	this.portno = (this.api_version > 5)?"1926":"1925";
+	
 	that.log("Model year: "+this.model_year_nr);
 	that.log("API version: "+this.api_version);
 	
 	this.state = false;
 	this.interval = parseInt( this.poll_status_interval);
-	this.on_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.on_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.on_body = JSON.stringify({"powerstate":"On"});
-	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.off_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.off_body = JSON.stringify({"powerstate":"Standby"});
-	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
-	this.info_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
+	this.status_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
+	this.info_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {
@@ -80,14 +93,26 @@ function HttpStatusAccessory(log, config)
 
 HttpStatusAccessory.prototype = {
 
-httpRequest: function(url, body, method, callback) {
-	req = request({
+httpRequest: function(url, body, method, api_version, callback) {
+	var options = {
 		url: url,
 		body: body,
 		method: method,
 		rejectUnauthorized: false,
 		timeout: 3000
-	},
+	};
+	
+	if(api_version == 6) {
+		options.followAllRedirects = true;
+		options.forever = true;
+		options.auth = {
+			user: this.username,
+			pass: this.password,
+			sendImmediately: false
+		}
+	}
+	
+	req = request(options,
 	function(error, response, body) {
 		callback(error, response, body)
 	});
@@ -122,7 +147,7 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 {
 	var that = this;
 
-	that.httpRequest(url, body, "POST", function(error, response, responseBody) {
+	that.httpRequest(url, body, "POST", this.api_version, function(error, response, responseBody) {
 		if (error) {
 			if (nCount > 0) {
 				that.log('setPowerState - powerstate attempt, attempt id: ', nCount-1);
@@ -132,11 +157,11 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 			} else {
 				that.log('setPowerState - failed: %s', error.message);
 				powerState = false;
-				that.log("setPowerState - failed - current state: %s", powerState);				
+				that.log("setPowerState - failed - current state: %s", powerState);
 				callback(new Error("HTTP attempt failed"), powerState);
 			}
 		} else {
-			that.log('setPowerState - Succeeded - current state: %s", powerState');			
+			that.log('setPowerState - Succeeded - current state: %s", powerState', powerState);
 			callback(null, powerState);
 		}
 	});
@@ -232,7 +257,7 @@ getPowerState: function(callback, context) {
     var url = this.status_url;
 	this.log("getPowerState - actual mode");
 
-    this.httpRequest(url, "", "GET", function(error, response, responseBody) {
+    this.httpRequest(url, "", "GET", this.api_version, function(error, response, responseBody) {
 		var tResp = that.powerstateOnError;
 		var tError = error;
 		if (tError) {

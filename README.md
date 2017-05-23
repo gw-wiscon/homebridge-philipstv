@@ -12,16 +12,17 @@ Main difference is:
 
 # Update
 Added power-on function for models after 2014 (thanks to uronito - https://github.com/uronito )
+Added support for 2016 philips models
 
 # Installation
 
 1. Install homebridge using: npm install -g homebridge
 2. Install this plugin using: npm install -g homebridge-philipstv
-3. Update your configuration file. See the sample below.
+3. Update your configuration file. See the sample below. If you have a 2016 model you have to generate some access-credentials before (see below)
 
 # Configuration
 
-Example accessory config for models before 2014 (needs to be added to the homebridge config.json):
+Example accessory config for models **before 2014** (needs to be added to the homebridge config.json):
  ```
 "accessories": [
 	{
@@ -34,7 +35,7 @@ Example accessory config for models before 2014 (needs to be added to the homebr
 ]
  ```
 
-Example accessory config for models from 2014 onwards (needs to be added to the homebridge config.json):
+Example accessory config for models **from 2014 and 2015** (needs to be added to the homebridge config.json):
  ```
 "accessories": [
 	{
@@ -45,6 +46,21 @@ Example accessory config for models from 2014 onwards (needs to be added to the 
 	}
 ]
  ```
+ 
+Example accessory config for models **from 2016** (needs to be added to the homebridge config.json):
+  ```
+ "accessories": [
+ 	{
+ 		"accessory": "PhilipsTV",
+ 		"name": "My Philips TV",
+ 		"ip_address": "10.0.1.23",
+ 		"poll_status_interval": "60",
+		"model_year": 2016,
+		"username": "deadbeef0815",
+		"password": "deadbeef0815deadbeef0815deadbeef0815deadbeef0815deadbeef0815",
+ 	}
+ ]
+  ```
  
 Added test option for WakeOnWLAN:
  ```
@@ -59,3 +75,13 @@ Added test option for WakeOnWLAN:
 	}
 ]
  ```
+ 
+# Credentials for 2016 models
+
+As of 2016 models Philips closed the open, non-https [JointSpace](http://jointspace.sourceforge.net/) API (v5) and switched to the secured API-version 6. Every control- or status-call needs [digest authentification](https://en.wikipedia.org/wiki/Digest_access_authentication) which contains of a pre generated username and password. You have to do this once for your TV. We reccomend to use the python script [philips\_android\_tv](https://github.com/suborb/philips_android_tv).
+
+Here is an example pairing call for philips\_android\_tv :
+```
+python ./philips.py --host 10.0.1.23 pair
+```
+

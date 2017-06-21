@@ -73,7 +73,7 @@ function HttpStatusAccessory(log, config)
 		var powerurl = this.status_url;
 		
 		var statusemitter = pollingtoevent(function(done) {
-			that.log("start polling..");
+			//that.log("start polling..");
 			that.getPowerState( function( error, response) {
 				//pass also the setAttempt, to force a homekit update if needed
 				done(error, response, that.setAttempt);
@@ -85,7 +85,7 @@ function HttpStatusAccessory(log, config)
 			that.log("event - status poller - new state: ", that.state);
 
 			if (that.switchService ) {
-				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+				that.switchService.getCharacteristic(Characteristic.On).updateValue(that.state, null, "statuspoll");
 			}
 		});
 	}
@@ -157,11 +157,11 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 			} else {
 				that.log('setPowerState - failed: %s', error.message);
 				powerState = false;
-				that.log("setPowerState - failed - current state: %s", powerState);
+				that.log("setPowerState - failed - current state: %s", powerState);				
 				callback(new Error("HTTP attempt failed"), powerState);
 			}
 		} else {
-			that.log('setPowerState - Succeeded - current state: %s", powerState', powerState);
+			that.log('setPowerState - Succeeded - current state: %s", powerState');			
 			callback(null, powerState);
 		}
 	});
@@ -242,7 +242,7 @@ getPowerState: function(callback, context) {
 //if context is statuspoll, then we need to request the actual value
 	if (!context || context != "statuspoll") {
 		if (this.switchHandling == "poll") {
-			this.log("getPowerState - polling mode, return state: ", this.state); 
+			//this.log("getPowerState - polling mode, return state: ", this.state); 
 			callback(null, this.state);
 			return;
 		}
@@ -255,7 +255,7 @@ getPowerState: function(callback, context) {
     }
     
     var url = this.status_url;
-	this.log("getPowerState - actual mode");
+	//this.log("getPowerState - actual mode");
 
     this.httpRequest(url, "", "GET", this.api_version, function(error, response, responseBody) {
 		var tResp = that.powerstateOnError;

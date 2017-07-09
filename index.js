@@ -23,7 +23,7 @@ function HttpStatusAccessory(log, config)
 	this.model_year = config["model_year"] || "2014";
 	this.wol_url = config["wol_url"] || "";
 	this.model_year_nr = parseInt(this.model_year);
-	this.setAttempt = 0;
+	this.set_attempt = 0;
 	
 	this.username = config["username"] || "";
 	this.password = config["password"] || "";
@@ -46,12 +46,20 @@ function HttpStatusAccessory(log, config)
 	that.log("API version: "+this.api_version);
 	
 	this.state = false;
+	this.state_ambilight = false;
+	
 	this.interval = parseInt( this.poll_status_interval);
 	this.on_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.on_body = JSON.stringify({"powerstate":"On"});
+	
 	this.off_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.off_body = JSON.stringify({"powerstate":"Standby"});
+	
 	this.status_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
+	this.status_url_ambilight = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/ambilight/power";
+	this.ambilight_on_body = JSON.stringify({"power":"On"});
+	this.ambilight_off_body = JSON.stringify({"power":"Off"});
+	
 	this.info_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
@@ -75,8 +83,8 @@ function HttpStatusAccessory(log, config)
 		var statusemitter = pollingtoevent(function(done) {
 			//that.log("start polling..");
 			that.getPowerState( function( error, response) {
-				//pass also the setAttempt, to force a homekit update if needed
-				done(error, response, that.setAttempt);
+				//pass also the set_attempt, to force a homekit update if needed
+				done(error, response, that.set_attempt);
 			}, "statuspoll");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll"});
 
@@ -85,7 +93,27 @@ function HttpStatusAccessory(log, config)
 			that.log("event - status poller - new state: ", that.state);
 
 			if (that.switchService ) {
-				that.switchService.getCharacteristic(Characteristic.On).updateValue(that.state, null, "statuspoll");
+				that.log("inside switchService");
+				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+			}
+		});
+		
+		
+		var statusemitter_ambilight = pollingtoevent(function(done) {
+			//that.log("start polling..");
+			that.getAmbilightState( function( error, response) {
+				//pass also the set_attempt, to force a homekit update if needed
+				done(error, response, that.set_attempt);
+			}, "statuspoll_ambilight");
+		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll_ambilight"});
+
+		statusemitter_ambilight.on("statuspoll_ambilight", function(data) {
+			that.state = data;
+			that.log("event - status poller ambilight - new state: ", that.state);
+
+			if (that.lightService ) {
+				that.log("inside lightService");
+				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
 			}
 		});
 	}
@@ -161,8 +189,32 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 				callback(new Error("HTTP attempt failed"), powerState);
 			}
 		} else {
-			that.log('setPowerState - Succeeded - current state: %s", powerState');			
+			that.log('setPowerState - Succeeded - current state: %s', powerState);	
 			callback(null, powerState);
+		}
+	});
+},
+
+setAmbilightStateLoop: function( nCount, url, body, ambilightState, callback)
+{
+	var that = this;
+
+	that.httpRequest(url, body, "POST", this.api_version, function(error, response, responseBody) {
+		if (error) {
+			if (nCount > 0) {
+				that.log('setAmbilightState - powerstate attempt, attempt id: ', nCount-1);
+				that.setAmbilightStateLoop(nCount-1, url, body, ambilightState, function( err, state) {
+					callback(err, state);
+				});				
+			} else {
+				that.log('setAmbilightState - failed: %s', error.message);
+				ambilightState = false;
+				that.log("setAmbilightState - failed - current state: %s", ambilightState);				
+				callback(new Error("HTTP attempt failed"), ambilightState);
+			}
+		} else {
+			that.log('setAmbilightState - Succeeded - current state: %s', ambilightState);			
+			callback(null, ambilightState);
 		}
 	});
 },
@@ -184,7 +236,7 @@ setPowerState: function(powerState, callback, context) {
 	    return;
     }
 
-	this.setAttempt = this.setAttempt+1;
+	this.set_attempt = this.set_attempt+1;
 	
     if (powerState) {
 		url = this.on_url;
@@ -228,9 +280,13 @@ setPowerState: function(powerState, callback, context) {
 			if (error) {
 				that.state = false;
 				that.log( "setPowerState - PWR: ERROR -- current state: %s", that.state);
-				if (that.switchService ) {
-					that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
-				}					
+			}
+			if (that.switchService ) {
+				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+			}
+			if (that.lightService ) {
+				that.state_ambilight = false;
+				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
 			}
 			callback(error, that.state);
 		}.bind(this));
@@ -239,10 +295,9 @@ setPowerState: function(powerState, callback, context) {
   
 getPowerState: function(callback, context) {
 	var that = this;
-//if context is statuspoll, then we need to request the actual value
+	//if context is statuspoll, then we need to request the actual value
 	if (!context || context != "statuspoll") {
 		if (this.switchHandling == "poll") {
-			//this.log("getPowerState - polling mode, return state: ", this.state); 
 			callback(null, this.state);
 			return;
 		}
@@ -255,8 +310,6 @@ getPowerState: function(callback, context) {
     }
     
     var url = this.status_url;
-	//this.log("getPowerState - actual mode");
-
     this.httpRequest(url, "", "GET", this.api_version, function(error, response, responseBody) {
 		var tResp = that.powerstateOnError;
 		var tError = error;
@@ -300,6 +353,117 @@ getPowerState: function(callback, context) {
 			var powerState = binaryState > 0;
 			that.log("getPowerState - actual mode - current state: %s", powerState);
 			that.state = powerState;
+			callback(null, powerState);
+		}
+	}.bind(this));
+},
+
+setAmbilightState: function(ambilightState, callback, context) {
+    var url;
+    var body;
+	var that = this;
+
+//if context is statuspoll, then we need to ensure that we do not set the actual value
+	if (context && context == "statuspoll_ambilight") {
+		this.log( "setAmbilightState - polling mode, ignore, state: %s", this.state);
+		callback(null, ambilightState);
+	    return;
+	}
+    if (!this.ip_address) {
+    	    this.log.warn("Ignoring request; No ip_address defined.");
+	    callback(new Error("No ip_address defined."));
+	    return;
+    }
+
+	this.set_attempt = this.set_attempt+1;
+	
+    if (ambilightState) {
+		url = this.status_url_ambilight;
+		body = this.ambilight_on_body;
+		this.log("setAmbilightState - setting power state to on");
+    } else {
+		url = this.status_url_ambilight;
+		body = this.ambilight_off_body;
+		this.log("setAmbilightState - setting power state to off");
+    }
+
+	that.setAmbilightStateLoop( 0, url, body, ambilightState, function( error, state) {
+		that.state_ambilight = state;
+		that.log( "setAmbilightState - PWR: %s - %s -- current state: %s", error, state, that.state_ambilight);
+		if (error) {
+			that.state = false;
+			that.log( "setAmbilightState - PWR: ERROR -- current state: %s", that.state_ambilight);
+			if (that.lightService ) {
+				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+			}					
+		}
+		callback(error, that.state);
+	}.bind(this));
+},
+
+getAmbilightState: function(callback, context) {
+	var that = this;
+//if context is statuspoll, then we need to request the actual value
+	if (!context || context != "statuspoll_ambilight") {
+		if (this.switchHandling == "poll") {
+			//this.log("getPowerState - polling mode, return state: ", this.state); 
+			callback(null, this.state_ambilight);
+			return;
+		}
+	}
+	
+    if (!this.status_url_ambilight) {
+    	this.log.warn("Ignoring request; No ambilight status url defined.");
+	    callback(new Error("No ambilight status url defined."));
+	    return;
+    }
+    
+    var url = this.status_url_ambilight;
+	//this.log("getPowerState - actual mode");
+
+    this.httpRequest(url, "", "GET", this.api_version, function(error, response, responseBody) {
+		var tResp = that.powerstateOnError;
+		var tError = error;
+		if (tError) {
+			if (that.powerstateOnError) {
+			  tResp = that.powerstateOnError;
+			  tError = null;
+			}
+		} else {
+			var parsed = false;
+			if (responseBody) {
+				var responseBodyParsed = JSON.parse( responseBody);
+				if (responseBodyParsed && responseBodyParsed.power) {
+					if (responseBodyParsed.power == "On") {
+						tResp = that.powerstateOnConnect;
+						tError = null;						
+					} else {
+						tResp = that.powerstateOnError;
+						tError = null;
+					}
+					parsed = true;
+				}
+			}
+			if (!parsed) {
+				that.log("Could not parse message2: '%s', assume device is ON", responseBody);
+				if (that.powerstateOnConnect) {
+				  tResp = that.powerstateOnConnect;
+				  tError = null;
+				}
+			}
+			//that.log("get resp: "+ responseBody);
+		}
+		if (tError) {
+			that.log('getAmbilightState - actual mode - failed: %s', error.message);
+			var powerState = false;
+			that.log("getAmbilightState - actual mode - current state: %s", powerState);
+			that.state_ambilight = powerState;
+			callback(null, powerState);
+		} else {
+			var binaryState = parseInt(tResp);
+			var powerState = binaryState > 0;
+			that.log("getAmbilightState - actual mode - current state: %s", powerState);
+			that.state_ambilight = powerState;
 			callback(null, powerState);
 		}
 	}.bind(this));
@@ -379,7 +543,13 @@ getServices: function() {
 		.getCharacteristic(Characteristic.On)
 		.on('get', this.getPowerState.bind(this))
 		.on('set', this.setPowerState.bind(this));
+		
+	this.lightService = new Service.Lightbulb(this.name+" Ambilight");
+	this.lightService
+		.getCharacteristic(Characteristic.On)
+		.on('get', this.getAmbilightState.bind(this))
+		.on('set', this.setAmbilightState.bind(this));
 
-	return [informationService, this.switchService];
+	return [informationService, this.switchService, this.lightService];
 }
 };

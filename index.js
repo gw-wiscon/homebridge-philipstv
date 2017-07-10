@@ -16,7 +16,7 @@ function HttpStatusAccessory(log, config)
 	this.log = log;
 	var that = this;
 	
-	// config
+	// CONFIG
 	this.ip_address	= config["ip_address"];
 	this.name = config["name"];
 	this.poll_status_interval = config["poll_status_interval"] || "0";
@@ -25,9 +25,11 @@ function HttpStatusAccessory(log, config)
 	this.model_year_nr = parseInt(this.model_year);
 	this.set_attempt = 0;
 	
+	// CREDENTIALS FOR API
 	this.username = config["username"] || "";
 	this.password = config["password"] || "";
 	
+	// CHOOSING API VERSION BY MODEL/YEAR
 	switch (this.model_year_nr) {
 		case 2016:
 			this.api_version = 6;
@@ -39,6 +41,7 @@ function HttpStatusAccessory(log, config)
 			this.api_version = 1;
 	}
 	
+	// CONNECTION SETTINGS
 	this.protocol = (this.api_version > 5)?"https":"http";
 	this.portno = (this.api_version > 5)?"1926":"1925";
 	
@@ -47,43 +50,50 @@ function HttpStatusAccessory(log, config)
 	
 	this.state = false;
 	this.state_ambilight = false;
+
+
+	// POWER
+	this.status_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";	
 	
-	this.interval = parseInt( this.poll_status_interval);
 	this.on_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.on_body = JSON.stringify({"powerstate":"On"});
-	
+
 	this.off_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
 	this.off_body = JSON.stringify({"powerstate":"Standby"});
-	
-	this.status_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/powerstate";
+
+	// AMBILIGHT
 	this.status_url_ambilight = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/ambilight/power";
-	this.ambilight_on_body = JSON.stringify({"power":"On"});
-	this.ambilight_off_body = JSON.stringify({"power":"Off"});
 	
-	this.info_url = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/system";
+	this.on_url_ambilight = this.protocol+"://"+this.ip_address+":"+this.portno+"/"+this.api_version+"/ambilight/currentconfiguration";	
+	this.on_body_ambilight = JSON.stringify({"styleName":"FOLLOW_VIDEO","isExpert":false,"menuSetting":"NATURAL"});
+	
+	this.off_url_ambilight = this.status_url_ambilight
+	this.off_body_ambilight = JSON.stringify({"power":"Off"});
+	
+	// INFOSET
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {
 		serialnumber : "Unknown",
-		model :"Unknown",
+		model : "Unknown",
 		manufacterer : "Philips",
 		name : "not provided",
 		softwareversion : "Unknown"
 	};
 	
+	// POLLING ENABLED?
+	this.interval = parseInt( this.poll_status_interval);
 	this.switchHandling = "check";
 	if (this.status_url && this.interval > 10 && this.interval < 100000) {
 		this.switchHandling = "poll";
 	}
 	
-	// Status Polling
+	// STATUS POLLING
 	if (this.switchHandling == "poll") {
 		var powerurl = this.status_url;
 		
 		var statusemitter = pollingtoevent(function(done) {
-			//that.log("start polling..");
 			that.getPowerState( function( error, response) {
-				//pass also the set_attempt, to force a homekit update if needed
 				done(error, response, that.set_attempt);
 			}, "statuspoll");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll"});
@@ -91,29 +101,22 @@ function HttpStatusAccessory(log, config)
 		statusemitter.on("statuspoll", function(data) {
 			that.state = data;
 			that.log("event - status poller - new state: ", that.state);
-
 			if (that.switchService ) {
-				that.log("inside switchService");
 				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
 			}
 		});
 		
-		
 		var statusemitter_ambilight = pollingtoevent(function(done) {
-			//that.log("start polling..");
 			that.getAmbilightState( function( error, response) {
-				//pass also the set_attempt, to force a homekit update if needed
 				done(error, response, that.set_attempt);
 			}, "statuspoll_ambilight");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll_ambilight"});
 
 		statusemitter_ambilight.on("statuspoll_ambilight", function(data) {
-			that.state = data;
-			that.log("event - status poller ambilight - new state: ", that.state);
-
-			if (that.lightService ) {
-				that.log("inside lightService");
-				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+			that.state_ambilight = data;
+			that.log("event - status poller ambilight - new state: ", that.state_ambilight);
+			if (that.ambilightService ) {
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
 			}
 		});
 	}
@@ -130,6 +133,7 @@ httpRequest: function(url, body, method, api_version, callback) {
 		timeout: 3000
 	};
 	
+	// EXTRA CONNECTION SETTINGS FOR API V6 (HTTP DIGEST)
 	if(api_version == 6) {
 		options.followAllRedirects = true;
 		options.forever = true;
@@ -171,6 +175,7 @@ wolRequest: function(url, callback) {
 	}
 },
 
+// POWER FUnCTIONS
 setPowerStateLoop: function( nCount, url, body, powerState, callback)
 {
 	var that = this;
@@ -191,30 +196,6 @@ setPowerStateLoop: function( nCount, url, body, powerState, callback)
 		} else {
 			that.log('setPowerState - Succeeded - current state: %s', powerState);	
 			callback(null, powerState);
-		}
-	});
-},
-
-setAmbilightStateLoop: function( nCount, url, body, ambilightState, callback)
-{
-	var that = this;
-
-	that.httpRequest(url, body, "POST", this.api_version, function(error, response, responseBody) {
-		if (error) {
-			if (nCount > 0) {
-				that.log('setAmbilightState - powerstate attempt, attempt id: ', nCount-1);
-				that.setAmbilightStateLoop(nCount-1, url, body, ambilightState, function( err, state) {
-					callback(err, state);
-				});				
-			} else {
-				that.log('setAmbilightState - failed: %s', error.message);
-				ambilightState = false;
-				that.log("setAmbilightState - failed - current state: %s", ambilightState);				
-				callback(new Error("HTTP attempt failed"), ambilightState);
-			}
-		} else {
-			that.log('setAmbilightState - Succeeded - current state: %s', ambilightState);			
-			callback(null, ambilightState);
 		}
 	});
 },
@@ -281,12 +262,12 @@ setPowerState: function(powerState, callback, context) {
 				that.state = false;
 				that.log( "setPowerState - PWR: ERROR -- current state: %s", that.state);
 			}
-			if (that.switchService ) {
-				that.switchService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
+			if (that.ambilightService ) {
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state, null, "statuspoll");
 			}
-			if (that.lightService ) {
+			if (that.ambilightService ) {
 				that.state_ambilight = false;
-				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
 			}
 			callback(error, that.state);
 		}.bind(this));
@@ -358,6 +339,31 @@ getPowerState: function(callback, context) {
 	}.bind(this));
 },
 
+// AMBILIGHT FUNCTIONS
+setAmbilightStateLoop: function( nCount, url, body, ambilightState, callback)
+{
+	var that = this;
+
+	that.httpRequest(url, body, "POST", this.api_version, function(error, response, responseBody) {
+		if (error) {
+			if (nCount > 0) {
+				that.log('setAmbilightState - powerstate attempt, attempt id: ', nCount-1);
+				that.setAmbilightStateLoop(nCount-1, url, body, ambilightState, function( err, state) {
+					callback(err, state);
+				});				
+			} else {
+				that.log('setAmbilightState - failed: %s', error.message);
+				ambilightState = false;
+				that.log("setAmbilightState - failed - current state: %s", ambilightState);				
+				callback(new Error("HTTP attempt failed"), ambilightState);
+			}
+		} else {
+			that.log('setAmbilightState - Succeeded - current state: %s', ambilightState);			
+			callback(null, ambilightState);
+		}
+	});
+},
+
 setAmbilightState: function(ambilightState, callback, context) {
     var url;
     var body;
@@ -378,26 +384,26 @@ setAmbilightState: function(ambilightState, callback, context) {
 	this.set_attempt = this.set_attempt+1;
 	
     if (ambilightState) {
-		url = this.status_url_ambilight;
-		body = this.ambilight_on_body;
+		url = this.on_url_ambilight;
+		body = this.on_body_ambilight;
 		this.log("setAmbilightState - setting power state to on");
     } else {
-		url = this.status_url_ambilight;
-		body = this.ambilight_off_body;
+		url = this.off_url_ambilight;
+		body = this.off_body_ambilight;
 		this.log("setAmbilightState - setting power state to off");
     }
 
 	that.setAmbilightStateLoop( 0, url, body, ambilightState, function( error, state) {
-		that.state_ambilight = state;
-		that.log( "setAmbilightState - PWR: %s - %s -- current state: %s", error, state, that.state_ambilight);
+		that.state_ambilight = ambilightState;
+		that.log( "setAmbilightState - PWR: %s - %s -- current state: %s", error, ambilightState, that.state_ambilight);
 		if (error) {
-			that.state = false;
+			that.state_ambilight = false;
 			that.log( "setAmbilightState - PWR: ERROR -- current state: %s", that.state_ambilight);
-			if (that.lightService ) {
-				that.lightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+			if (that.ambilightService ) {
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
 			}					
 		}
-		callback(error, that.state);
+		callback(error, that.state_ambilight);
 	}.bind(this));
 },
 
@@ -523,10 +529,7 @@ processInformation: function( info, informationService, firstTime)
 	if( !equal || firstTime) {
 		if (informationService) {
 			this.log('Setting info: '+ JSON.stringify( this.info));
-			informationService
-			.setCharacteristic(Characteristic.Manufacturer, deviceManufacturer)
-			.setCharacteristic(Characteristic.Model, deviceModel)
-			.setCharacteristic(Characteristic.SerialNumber, deviceSerialnumber);
+			
 		}
 	}
 },
@@ -537,19 +540,20 @@ getServices: function() {
 	var informationService = new Service.AccessoryInformation();
 	this.processInformation( this.info, informationService, true);
 
+	// POWER
 	this.switchService = new Service.Switch(this.name);
-
 	this.switchService
 		.getCharacteristic(Characteristic.On)
 		.on('get', this.getPowerState.bind(this))
 		.on('set', this.setPowerState.bind(this));
 		
-	this.lightService = new Service.Lightbulb(this.name+" Ambilight");
-	this.lightService
+	// AMBILIGHT
+	this.ambilightService = new Service.Lightbulb(this.name+" Ambilight");
+	this.ambilightService
 		.getCharacteristic(Characteristic.On)
 		.on('get', this.getAmbilightState.bind(this))
 		.on('set', this.setAmbilightState.bind(this));
 
-	return [informationService, this.switchService, this.lightService];
+	return [informationService, this.switchService, this.ambilightService];
 }
 };

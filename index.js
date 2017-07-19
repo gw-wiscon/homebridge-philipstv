@@ -109,14 +109,14 @@ function HttpStatusAccessory(log, config)
 		var statusemitter_ambilight = pollingtoevent(function(done) {
 			that.getAmbilightState( function( error, response) {
 				done(error, response, that.set_attempt);
-			}, "statuspoll_ambilight");
+			}, "statuspoll");
 		}, {longpolling:true,interval:that.interval * 1000,longpollEventName:"statuspoll_ambilight"});
 
 		statusemitter_ambilight.on("statuspoll_ambilight", function(data) {
 			that.state_ambilight = data;
 			that.log("event - status poller ambilight - new state: ", that.state_ambilight);
 			if (that.ambilightService ) {
-				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll");
 			}
 		});
 	}
@@ -267,7 +267,7 @@ setPowerState: function(powerState, callback, context) {
 			}
 			if (that.ambilightService ) {
 				that.state_ambilight = false;
-				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll");
 			}
 			callback(error, that.state);
 		}.bind(this));
@@ -370,8 +370,8 @@ setAmbilightState: function(ambilightState, callback, context) {
 	var that = this;
 
 //if context is statuspoll, then we need to ensure that we do not set the actual value
-	if (context && context == "statuspoll_ambilight") {
-		this.log( "setAmbilightState - polling mode, ignore, state: %s", this.state);
+	if (context && context == "statuspoll") {
+		this.log( "setAmbilightState - polling mode, ignore, state: %s", this.state_ambilight);
 		callback(null, ambilightState);
 	    return;
 	}
@@ -400,7 +400,7 @@ setAmbilightState: function(ambilightState, callback, context) {
 			that.state_ambilight = false;
 			that.log( "setAmbilightState - PWR: ERROR -- current state: %s", that.state_ambilight);
 			if (that.ambilightService ) {
-				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll_ambilight");
+				that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll");
 			}					
 		}
 		callback(error, that.state_ambilight);
@@ -410,7 +410,7 @@ setAmbilightState: function(ambilightState, callback, context) {
 getAmbilightState: function(callback, context) {
 	var that = this;
 //if context is statuspoll, then we need to request the actual value
-	if (!context || context != "statuspoll_ambilight") {
+	if (!context || context != "statuspoll") {
 		if (this.switchHandling == "poll") {
 			//this.log("getPowerState - polling mode, return state: ", this.state); 
 			callback(null, this.state_ambilight);
@@ -480,65 +480,14 @@ identify: function(callback) {
     callback(); // success
 },
 
-processInformation: function( info, informationService, firstTime)
-{
-	if (!info)
-		return;
-		
-	var equal = true;
-	
-	var deviceManufacturer = info.manufacturer || "Philips";
-	if (deviceManufacturer != this.info.manufacturer) {
-		equal = false;
-		this.info.manufacturer = deviceManufacturer;
-	}
-	
-	var deviceModel = info.model || "Not provided";
-	if (deviceModel == "Not provided" && info.model_encrypted) {
-		deviceModel = "encrypted";
-	}
-	if (deviceModel != this.info.model) {
-		equal = false;
-		this.info.model = deviceModel;
-	}
-	
-	var deviceSerialnumber = info.serialnumber || "Not provided";
-	if (deviceSerialnumber == "Not provided" && info.serialnumber_encrypted) {
-		deviceSerialnumber = "encrypted";
-	}
-	if (deviceSerialnumber != this.info.serialnumber) {
-		equal = false;
-		this.info.serialnumber = deviceSerialnumber;
-	}
-	
-	var deviceName = info.name || "Not provided";
-	if (deviceName != this.info.name) {
-		equal = false;
-		this.info.name = deviceName;
-	}
-	
-	var deviceSoftwareversion = info.softwareversion || "Not provided";
-	if (deviceSoftwareversion == "Not provided" && info.softwareversion_encrypted) {
-		deviceSoftwareversion = "encrypted";
-	}	
-	if (deviceSoftwareversion != this.info.softwareversion) {
-		equal = false;
-		this.info.softwareversion = deviceSoftwareversion;
-	}
-	
-	if( !equal || firstTime) {
-		if (informationService) {
-			this.log('Setting info: '+ JSON.stringify( this.info));
-			
-		}
-	}
-},
-
 getServices: function() {
 	var that = this;
 
 	var informationService = new Service.AccessoryInformation();
-	this.processInformation( this.info, informationService, true);
+	informationService
+    	.setCharacteristic(Characteristic.Name, this.name)
+    	.setCharacteristic(Characteristic.Manufacturer, 'Philips')
+	    .setCharacteristic(Characteristic.Model, this.model_year);
 
 	// POWER
 	this.switchService = new Service.Switch(this.name);

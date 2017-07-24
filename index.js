@@ -486,8 +486,8 @@ getServices: function() {
 	var informationService = new Service.AccessoryInformation();
 	informationService
     	.setCharacteristic(Characteristic.Name, this.name)
-    	.setCharacteristic(Characteristic.Manufacturer, 'Philips')
-	    .setCharacteristic(Characteristic.Model, this.model_year);
+		.setCharacteristic(Characteristic.Manufacturer, 'Philips')
+		.setCharacteristic(Characteristic.Model, "Year "+this.model_year);
 
 	// POWER
 	this.switchService = new Service.Switch(this.name);

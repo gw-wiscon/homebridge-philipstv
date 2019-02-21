@@ -18,6 +18,7 @@ function HttpStatusAccessory(log, config)
 	
 	// config
 	this.ip_address	= config["ip_address"];
+	this.port = config["port"] || "1925";
 	this.name = config["name"];
 	this.poll_status_interval = config["poll_status_interval"] || "0";
 	this.model_year = config["model_year"] || "2014";
@@ -34,12 +35,12 @@ function HttpStatusAccessory(log, config)
 	
 	this.state = false;
 	this.interval = parseInt( this.poll_status_interval);
-	this.on_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.on_url = "http://"+this.ip_address+":"+this.port+"/"+this.api_version+"/powerstate";
 	this.on_body = JSON.stringify({"powerstate":"On"});
-	this.off_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
+	this.off_url = "http://"+this.ip_address+":"+this.port+"/"+this.api_version+"/powerstate";
 	this.off_body = JSON.stringify({"powerstate":"Standby"});
-	this.status_url = "http://"+this.ip_address+":1925/"+this.api_version+"/powerstate";
-	this.info_url = "http://"+this.ip_address+":1925/"+this.api_version+"/system";
+	this.status_url = "http://"+this.ip_address+":"+this.port+"/"+this.api_version+"/powerstate";
+	this.info_url = "http://"+this.ip_address+":"+this.port+"/"+this.api_version+"/system";
 	this.powerstateOnError = "0";
 	this.powerstateOnConnect = "1";
 	this.info = {

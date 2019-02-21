@@ -243,7 +243,13 @@ getPowerState: function(callback, context) {
 		} else {
 			var parsed = false;
 			if (responseBody) {
-				var responseBodyParsed = JSON.parse( responseBody);
+				var responseBodyParsed;
+				try {
+					responseBodyParsed = JSON.parse(responseBody);
+				} catch (error) {
+					that.log(error.message);
+					// should execute ´if (!parsed)´ block below
+				}
 				if (responseBodyParsed && responseBodyParsed.powerstate) {
 					if (responseBodyParsed.powerstate == "On") {
 						tResp = that.powerstateOnConnect;

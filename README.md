@@ -59,3 +59,16 @@ Added test option for WakeOnWLAN:
 	}
 ]
  ```
+
+Some TVs seem to have Jointspace on port 1926. For this TVs the port can be specified in the config.json like below (optional):
+ ```
+"accessories": [
+	{
+		"accessory": "PhilipsTV",
+		"name": "My Philips TV",
+		"ip_address": "10.0.1.23",
+		"poll_status_interval": "60",
+		"port": "1926"
+	}
+]
+ ```

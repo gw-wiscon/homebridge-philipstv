@@ -249,6 +249,7 @@ getPowerState: function(callback, context) {
 					responseBodyParsed = JSON.parse(responseBody);
 				} catch (error) {
 					that.log(error.message);
+					responseBodyParsed = false;
 					// should execute ´if (!parsed)´ block below
 				}
 				if (responseBodyParsed && responseBodyParsed.powerstate) {

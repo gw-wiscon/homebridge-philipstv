@@ -8,7 +8,7 @@ module.exports = function(homebridge)
 {
   Service = homebridge.hap.Service;
   Characteristic = homebridge.hap.Characteristic;
-  homebridge.registerAccessory("homebridge-philipstv", "PhilipsTV", HttpStatusAccessory);
+  homebridge.registerAccessory("homebridge-philipstv-older-models", "PhilipsTV", HttpStatusAccessory);
 }
 
 function HttpStatusAccessory(log, config) 

@@ -1,5 +1,6 @@
-# homebridge-philipstv
-Homebridge module for Philips TV (with JointSpace enabled)
+# homebridge-philipstv-older-models
+Homebridge module for Philips TV (with JointSpace enabled) 
+This package targets 2012 and below models which has not "powerstate" implemented.
 
 # Description
 
